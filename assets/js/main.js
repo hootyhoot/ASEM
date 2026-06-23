@@ -124,14 +124,15 @@ function layoutDock() {
   const ci    = (n - 1) / 2;
   const vw    = window.innerWidth;
 
-  // Arc drop derived from the same circle as the hero (R_hero = vw²/480 + 30).
-  // R_dock is the inner-curve radius (d ≈ 90 px separation from hero apex).
-  // refX is capped at 150 px: once halfW > 150 (≥ 6 desktop bubbles) arcDrop
-  // is a function of viewport only — adding more items doesn't change it.
-  const R_hero  = vw * vw / 480 + 30;
-  const R_dock  = Math.max(R_hero - 90, 200);
-  const refX    = Math.min(halfW, 150);
-  const arcDrop = Math.min(size * 0.55, (refX * refX) / (2 * R_dock));
+  // The hero circle chord equals the viewport width at its base, so its
+  // apparent visual radius (half-chord) = vw/2 — NOT the mathematical
+  // radius of curvature (vw²/480), which is huge and gives a near-zero drop.
+  // Inner-curve formula: R_visual_dock = vw/2 − 90 (90 px separation).
+  // refX capped at 150 px: once halfW > 150 (≥ 6 desktop bubbles) arcDrop
+  // responds only to viewport width, not item count.
+  const R_visual = Math.max(vw / 2 - 90, 100);
+  const refX     = Math.min(halfW, 150);
+  const arcDrop  = Math.min(size * 0.55, (refX * refX) / (2 * R_visual));
 
   dock.style.height = `${Math.ceil(size + 32 + arcDrop)}px`;
   dock.style.gap    = `${gap}px`;
