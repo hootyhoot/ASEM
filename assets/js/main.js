@@ -6,6 +6,23 @@ const lbPrev = document.getElementById('lb-prev');
 const lbNext = document.getElementById('lb-next');
 const backToTop = document.getElementById('back-to-top');
 const dock = document.getElementById('project-dock');
+const hero = document.querySelector('.hero');
+
+// ── Hero circle arc ────────────────────────────────────────
+// ellipse() has independent rx/ry, so the dome shape changes with viewport.
+// circle() with a JS-computed radius gives a true single-radius arc.
+// For dome height h spanning full viewport width w: R = w²/(8h) + h/2
+// Center placed cy = R−h pixels below the element bottom so the arc
+// just touches the element's top-center and bottom-corners.
+function updateHeroCurve() {
+  const w = window.innerWidth;
+  const h = 60;
+  const R = Math.round(w * w / (8 * h) + h / 2);
+  hero.style.setProperty('--hero-R',  R + 'px');
+  hero.style.setProperty('--hero-cy', (R - h) + 'px');
+}
+updateHeroCurve();
+window.addEventListener('resize', updateHeroCurve, { passive: true });
 
 let lbImages = [];
 let lbIndex = 0;
@@ -108,8 +125,8 @@ function layoutDock() {
 
   // Inner-curve arc: R_dock = halfW²/(2·ARC_DROP) — always smaller than
   // R_hero = (0.55vw)²/60, giving drop(x) = ARC_DROP·(x/halfW)²
-  // Container: 30px top space (above center bubbles) + size + ARC_DROP + 30px padding-bottom (CSS)
-  dock.style.height = `${size + 60 + ARC_DROP}px`;
+  // Container: 16px top space + size + ARC_DROP + 16px padding-bottom (CSS)
+  dock.style.height = `${size + 32 + ARC_DROP}px`;
   dock.style.gap    = `${gap}px`;
 
   dockData.forEach((bd, i) => {

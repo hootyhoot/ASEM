@@ -40,7 +40,9 @@ body {
   right: 0;
   height: 60px;
   background: var(--white);
-  clip-path: ellipse(55% 100% at 50% 100%);
+  /* JS sets --hero-R and --hero-cy to produce a true circle arc:
+     R = vw²/(8×60) + 30  →  cy = R−60 pixels below element bottom */
+  clip-path: circle(var(--hero-R, 3030px) at 50% calc(100% + var(--hero-cy, 2970px)));
 }
 
 .hero-logo {
@@ -154,7 +156,7 @@ body {
   overflow: visible;
   background: var(--white);
   z-index: 10;
-  padding-bottom: 30px;
+  padding-bottom: 16px;
 }
 
 .dock-bubble {
