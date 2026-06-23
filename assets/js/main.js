@@ -57,10 +57,12 @@ document.addEventListener('keydown', e => {
 });
 
 // ── Dock ──────────────────────────────────────────────────
-const MAG_MAX = 2.5;
+const MAG_MAX   = 2.5;
+const ARC_DROP  = 20;   // px: max drop at edge bubbles (inner-curve of hero ellipse)
 
 let dockData = [];
-let dockResizeObs = null;
+let dockResizeTimer = null;
+let dockResizeHandler = null;
 
 function bSize() { return window.innerWidth < 640 ? 32 : 44; }
 function bGap()  { return window.innerWidth < 640 ?  8 : 14; }
@@ -69,7 +71,13 @@ function magRadius() { return Math.max(60, window.innerWidth * 0.12); }
 function buildDock(projects) {
   dock.innerHTML = '';
   dockData = [];
-  if (dockResizeObs) dockResizeObs.disconnect();
+
+  if (dockResizeHandler) window.removeEventListener('resize', dockResizeHandler);
+  dockResizeHandler = () => {
+    clearTimeout(dockResizeTimer);
+    dockResizeTimer = setTimeout(layoutDock, 120);
+  };
+  window.addEventListener('resize', dockResizeHandler, { passive: true });
 
   projects.forEach((project, i) => {
     const btn = document.createElement('button');
@@ -85,10 +93,6 @@ function buildDock(projects) {
   });
 
   layoutDock();
-
-  dockResizeObs = new ResizeObserver(() => layoutDock());
-  dockResizeObs.observe(dock);
-
   dock.addEventListener('mousemove', onDockMove);
   dock.addEventListener('mouseleave', onDockLeave);
 }
@@ -102,34 +106,25 @@ function layoutDock() {
   const totalW = n * size + (n - 1) * gap;
   const halfW  = totalW / 2;
 
-  // Match hero ellipse curvature: ry=60px, rx=0.55*vw → R=rx²/ry
-  // Arc drop at x from dock center: y = x² / (2R) = x²·60 / (2·rx²)
-  const rx = 0.55 * window.innerWidth;
-  const coeff = 60 / (2 * rx * rx);
-
-  const drops = dockData.map((_, i) => {
-    const xc = i * (size + gap) + size / 2 - halfW;
-    return xc * xc * coeff;
-  });
-  const maxDrop = Math.max(...drops);
-
-  // Height: room for magnified bubbles above + arc below
-  dock.style.height = `${Math.ceil(size * MAG_MAX + maxDrop + 16)}px`;
-  dock.style.gap = `${gap}px`;
+  // Inner-curve arc: R_dock = halfW²/(2·ARC_DROP) — always smaller than
+  // R_hero = (0.55vw)²/60, giving drop(x) = ARC_DROP·(x/halfW)²
+  // Container: 30px top space (above center bubbles) + size + ARC_DROP + 30px padding-bottom (CSS)
+  dock.style.height = `${size + 60 + ARC_DROP}px`;
+  dock.style.gap    = `${gap}px`;
 
   dockData.forEach((bd, i) => {
-    const xc   = i * (size + gap) + size / 2 - halfW;
-    const drop = xc * xc * coeff;
-    // flex-end alignment: more margin-bottom → bubble sits higher
-    // center bubbles highest (mb=maxDrop), edge bubbles lowest (mb=0)
-    const mb = maxDrop - drop;
+    const xc  = i * (size + gap) + size / 2 - halfW;
+    const drop = ARC_DROP * (xc / halfW) * (xc / halfW);
+    // flex-end: more margin-bottom → bubble sits higher; center=max, edges=0
+    const mb = ARC_DROP - drop;
 
     bd.baseMarginBottom = mb;
     bd.baseSize = size;
-    bd.el.style.width  = `${size}px`;
-    bd.el.style.height = `${size}px`;
+    bd.el.classList.remove('dock-resetting');
+    bd.el.style.width        = `${size}px`;
+    bd.el.style.height       = `${size}px`;
     bd.el.style.marginBottom = `${mb}px`;
-    bd.el.style.fontSize = `${Math.round(size * 0.33)}px`;
+    bd.el.style.fontSize     = `${Math.round(size * 0.33)}px`;
   });
 }
 
@@ -147,26 +142,29 @@ function onDockMove(e) {
   const radius = magRadius();
 
   dockData.forEach((bd, i) => {
-    // Use base (unmagnified) center x for distance — avoids feedback loop
+    bd.el.classList.remove('dock-resetting');
+    // Distance from cursor to each bubble's BASE center — stable reference,
+    // prevents feedback loop from shifted positions feeding back into scale calc
     const baseCx = dockCx - halfW + i * (size + gap) + size / 2;
     const dist = Math.abs(mouseX - baseCx);
     const t  = Math.max(0, 1 - dist / radius);
     const s  = 1 + (MAG_MAX - 1) * Math.pow(t, 1.5);
     const vs = size * s;
 
-    bd.el.style.width  = `${vs}px`;
-    bd.el.style.height = `${vs}px`;
+    bd.el.style.width        = `${vs}px`;
+    bd.el.style.height       = `${vs}px`;
     bd.el.style.marginBottom = `${bd.baseMarginBottom}px`;
-    bd.el.style.fontSize = `${Math.round(vs * 0.33)}px`;
+    bd.el.style.fontSize     = `${Math.round(vs * 0.33)}px`;
   });
 }
 
 function onDockLeave() {
   dockData.forEach(bd => {
-    bd.el.style.width  = `${bd.baseSize}px`;
-    bd.el.style.height = `${bd.baseSize}px`;
+    bd.el.classList.add('dock-resetting');
+    bd.el.style.width        = `${bd.baseSize}px`;
+    bd.el.style.height       = `${bd.baseSize}px`;
     bd.el.style.marginBottom = `${bd.baseMarginBottom}px`;
-    bd.el.style.fontSize = `${Math.round(bd.baseSize * 0.33)}px`;
+    bd.el.style.fontSize     = `${Math.round(bd.baseSize * 0.33)}px`;
   });
 }
 

@@ -154,6 +154,7 @@ body {
   overflow: visible;
   background: var(--white);
   z-index: 10;
+  padding-bottom: 30px;
 }
 
 .dock-bubble {
@@ -169,7 +170,13 @@ body {
   justify-content: center;
   user-select: none;
   box-shadow: 0 2px 10px rgba(90, 143, 10, 0.35);
-  transition: width 0.08s ease, height 0.08s ease, font-size 0.08s ease, margin-bottom 0.08s ease;
+  /* no transition during hover — instant updates prevent queued-transition jitter */
+}
+
+/* smooth return to resting size on mouse-leave only */
+.dock-bubble.dock-resetting {
+  transition: width 0.3s ease, height 0.3s ease,
+              font-size 0.3s ease, margin-bottom 0.3s ease;
 }
 
 /* ── Back to top ── */
