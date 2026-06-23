@@ -57,74 +57,116 @@ document.addEventListener('keydown', e => {
 });
 
 // ── Dock ──────────────────────────────────────────────────
-const BUBBLE_SIZE = 44;
-const BUBBLE_GAP  = 16;
-const ARC_STEP    = 9;   // px drop per squared unit of index distance from center
-const MAG_MAX     = 2.5;
-const MAG_RADIUS  = 110; // px influence radius
+const MAG_MAX = 2.5;
+
+let dockData = [];
+let dockResizeObs = null;
+
+function bSize() { return window.innerWidth < 640 ? 32 : 44; }
+function bGap()  { return window.innerWidth < 640 ?  8 : 14; }
+function magRadius() { return Math.max(60, window.innerWidth * 0.12); }
 
 function buildDock(projects) {
   dock.innerHTML = '';
+  dockData = [];
+  if (dockResizeObs) dockResizeObs.disconnect();
 
   projects.forEach((project, i) => {
     const btn = document.createElement('button');
     btn.className = 'dock-bubble';
     btn.textContent = i + 1;
-    btn.setAttribute('aria-label', `Jump to: ${project.title}`);
+    btn.setAttribute('aria-label', `Jump to project: ${project.title}`);
     btn.addEventListener('click', () => {
       document.getElementById(`project-${i}`)
         ?.scrollIntoView({ behavior: 'smooth', block: 'start' });
     });
     dock.appendChild(btn);
+    dockData.push({ el: btn, baseMarginBottom: 0, baseSize: bSize() });
   });
 
   layoutDock();
-  window.addEventListener('resize', layoutDock, { passive: true });
+
+  dockResizeObs = new ResizeObserver(() => layoutDock());
+  dockResizeObs.observe(dock);
+
   dock.addEventListener('mousemove', onDockMove);
   dock.addEventListener('mouseleave', onDockLeave);
 }
 
 function layoutDock() {
-  const bubbles = [...dock.querySelectorAll('.dock-bubble')];
-  const n = bubbles.length;
+  const n = dockData.length;
   if (!n) return;
 
-  const dockW   = dock.offsetWidth;
-  const centerX = dockW / 2;
-  const totalW  = n * BUBBLE_SIZE + (n - 1) * BUBBLE_GAP;
-  const startX  = centerX - totalW / 2;
-  const ci      = (n - 1) / 2; // fractional center index
+  const size  = bSize();
+  const gap   = bGap();
+  const totalW = n * size + (n - 1) * gap;
+  const halfW  = totalW / 2;
 
-  // max arc drop — resize dock height to fit
-  const maxDrop = ARC_STEP * Math.pow(ci, 2);
-  dock.style.height = `${BUBBLE_SIZE + maxDrop + 20}px`;
+  // Match hero ellipse curvature: ry=60px, rx=0.55*vw → R=rx²/ry
+  // Arc drop at x from dock center: y = x² / (2R) = x²·60 / (2·rx²)
+  const rx = 0.55 * window.innerWidth;
+  const coeff = 60 / (2 * rx * rx);
 
-  bubbles.forEach((b, i) => {
-    const x    = startX + i * (BUBBLE_SIZE + BUBBLE_GAP);
-    const drop = ARC_STEP * Math.pow(i - ci, 2);
-    b.style.left = `${x}px`;
-    b.style.top  = `${drop}px`;
-    b._cx = x + BUBBLE_SIZE / 2; // store screen-relative center for magnify
+  const drops = dockData.map((_, i) => {
+    const xc = i * (size + gap) + size / 2 - halfW;
+    return xc * xc * coeff;
+  });
+  const maxDrop = Math.max(...drops);
+
+  // Height: room for magnified bubbles above + arc below
+  dock.style.height = `${Math.ceil(size * MAG_MAX + maxDrop + 16)}px`;
+  dock.style.gap = `${gap}px`;
+
+  dockData.forEach((bd, i) => {
+    const xc   = i * (size + gap) + size / 2 - halfW;
+    const drop = xc * xc * coeff;
+    // flex-end alignment: more margin-bottom → bubble sits higher
+    // center bubbles highest (mb=maxDrop), edge bubbles lowest (mb=0)
+    const mb = maxDrop - drop;
+
+    bd.baseMarginBottom = mb;
+    bd.baseSize = size;
+    bd.el.style.width  = `${size}px`;
+    bd.el.style.height = `${size}px`;
+    bd.el.style.marginBottom = `${mb}px`;
+    bd.el.style.fontSize = `${Math.round(size * 0.33)}px`;
   });
 }
 
 function onDockMove(e) {
+  const n = dockData.length;
+  if (!n) return;
+
   const rect   = dock.getBoundingClientRect();
   const mouseX = e.clientX - rect.left;
+  const size   = dockData[0].baseSize;
+  const gap    = bGap();
+  const totalW = n * size + (n - 1) * gap;
+  const halfW  = totalW / 2;
+  const dockCx = dock.offsetWidth / 2;
+  const radius = magRadius();
 
-  dock.querySelectorAll('.dock-bubble').forEach(b => {
-    b.classList.remove('resetting');
-    const dist  = Math.abs(mouseX - b._cx);
-    const t     = Math.max(0, 1 - dist / MAG_RADIUS);
-    const scale = 1 + (MAG_MAX - 1) * Math.pow(t, 1.5);
-    b.style.transform = `scale(${scale})`;
+  dockData.forEach((bd, i) => {
+    // Use base (unmagnified) center x for distance — avoids feedback loop
+    const baseCx = dockCx - halfW + i * (size + gap) + size / 2;
+    const dist = Math.abs(mouseX - baseCx);
+    const t  = Math.max(0, 1 - dist / radius);
+    const s  = 1 + (MAG_MAX - 1) * Math.pow(t, 1.5);
+    const vs = size * s;
+
+    bd.el.style.width  = `${vs}px`;
+    bd.el.style.height = `${vs}px`;
+    bd.el.style.marginBottom = `${bd.baseMarginBottom}px`;
+    bd.el.style.fontSize = `${Math.round(vs * 0.33)}px`;
   });
 }
 
 function onDockLeave() {
-  dock.querySelectorAll('.dock-bubble').forEach(b => {
-    b.classList.add('resetting');
-    b.style.transform = '';
+  dockData.forEach(bd => {
+    bd.el.style.width  = `${bd.baseSize}px`;
+    bd.el.style.height = `${bd.baseSize}px`;
+    bd.el.style.marginBottom = `${bd.baseMarginBottom}px`;
+    bd.el.style.fontSize = `${Math.round(bd.baseSize * 0.33)}px`;
   });
 }
 
