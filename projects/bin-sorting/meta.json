@@ -1,0 +1,8 @@
+{
+  "title": "Bin Sorting",
+  "date": "2026-06-30",
+  "description": "Using the same pose-recording and command-replay system from our initial robot arm project, we finalised the pick-and-place movements to sort coloured blocks into their matching bins. Each pose was tuned for consistent grip and release, and the movement sequence was locked in to reliably complete a full sort cycle. Next steps are to integrate IoT connectivity so the mobile robot can trigger the arm automatically as part of a combined pipeline.",
+  "tags": ["Robot Arm", "ESP32", "Pose Replay", "Pick and Place", "Colour Sorting", "IoT"],
+  "cover": null,
+  "images": ["bin-sorting.webm"]
+}

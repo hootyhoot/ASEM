@@ -2,5 +2,7 @@
   "mobile-robot",
   "robot-arm",
   "combined-robot-trial",
-  "line-tracking"
+  "line-tracking",
+  "inverse-kinematics",
+  "bin-sorting"
 ]
