@@ -235,7 +235,12 @@ function renderSection(project, index) {
 
   const galleryHTML = media.map((src, i) => {
     if (isVideo(src)) {
-      return `<video class="gallery-video" src="${src}" autoplay muted loop playsinline preload="auto"></video>`;
+      const isWebm = src.endsWith('.webm');
+      const mp4Src = isWebm ? src.replace(/\.webm$/, '.mp4') : src;
+      const sources = isWebm
+        ? `<source src="${src}" type="video/webm"><source src="${mp4Src}" type="video/mp4">`
+        : `<source src="${src}" type="video/mp4">`;
+      return `<video class="gallery-video" autoplay muted loop playsinline preload="auto">${sources}</video>`;
     }
     return `<img class="gallery-img" src="${src}" alt="${project.title} — image ${i + 1}" loading="lazy">`;
   }).join('');
